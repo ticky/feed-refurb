@@ -6,3 +6,8 @@ authors = ["Jessica Stokes <hello@jessicastokes.net>"]
 [dependencies]
 rocket = "0.3.14"
 rocket_codegen = "0.3.14"
+
+[dependencies.rocket_contrib]
+version = "0.3.14"
+default-features = false
+features = ["handlebars_templates"]
