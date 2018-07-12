@@ -1,1 +1,1 @@
-web: ./target/release/basecalendar
+web: ROCKET_PORT=$PORT ./target/release/basecalendar
