@@ -1,0 +1,8 @@
+[package]
+name = "basecalendar"
+version = "0.1.0"
+authors = ["Jessica Stokes <hello@jessicastokes.net>"]
+
+[dependencies]
+rocket = "0.3.14"
+rocket_codegen = "0.3.14"
