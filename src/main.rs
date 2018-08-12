@@ -52,14 +52,20 @@ struct FeedConfiguration {
 fn refurb(configuration: FeedConfiguration) -> Xml<String> {
   let http_client = reqwest::Client::builder().build().unwrap();
 
-  let feed = http_client.get(configuration.feed.as_str()).send().unwrap();
-  let feed_buffer = BufReader::new(feed);
-  let mut parsed_feed = Channel::read_from(feed_buffer).unwrap();
+  let mut parsed_feed = Channel::read_from(BufReader::new(
+    http_client.get(configuration.feed.as_str()).send().unwrap()
+  )).unwrap();
 
   for item in parsed_feed.items_mut().iter_mut() {
-    let new_description = match item.description() {
-      Some(description) => format!("{} (hi!)", description),
-      None => String::from("No description? weird!")
+    let new_description = match item.link() {
+      None => continue,
+      Some(url) => {
+        let page_text = http_client.get(url).send().unwrap().text().unwrap();
+        let document = scraper::Html::parse_document(&page_text);
+        let new_description: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
+
+        new_description.join("<br/>")
+      }
     };
 
     item.set_description(new_description);
