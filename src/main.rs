@@ -14,7 +14,7 @@ fn index() -> Template {
   Template::render("index", &map)
 }
 
-#[error(404)]
+#[catch(404)]
 fn not_found(req: &Request) -> Template {
   let mut map = std::collections::HashMap::new();
   map.insert("path", req.uri().as_str());
@@ -24,7 +24,7 @@ fn not_found(req: &Request) -> Template {
 fn main() {
   rocket::ignite()
     .attach(Template::fairing())
-    .catch(errors![not_found])
+    .catch(catchers![not_found])
     .mount("/", routes![index])
     .launch();
 }
