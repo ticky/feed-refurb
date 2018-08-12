@@ -1,1 +1,1 @@
-web: ROCKET_ENV=prod ROCKET_PORT=$PORT ./target/release/basecalendar
+web: ROCKET_ENV=prod ROCKET_PORT=$PORT ./target/release/feed-refurb
