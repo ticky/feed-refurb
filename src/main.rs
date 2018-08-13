@@ -2,19 +2,16 @@
 #![plugin(rocket_codegen)]
 #![feature(custom_derive)]
 
+extern crate kuchiki;
 extern crate reqwest;
 extern crate rocket;
 extern crate rocket_contrib;
 extern crate rss;
-extern crate scraper;
 
-use rocket::http::RawStr;
 use rocket::Request;
-use rocket::request::FromFormValue;
 use rocket::response::content::Xml;
 use rocket_contrib::Template;
 use rss::Channel;
-use scraper::Selector;
 use std::io::BufReader;
 
 #[get("/")]
@@ -24,28 +21,10 @@ fn index() -> Template {
   Template::render("index", &map)
 }
 
-struct CSSSelector(Selector);
-
-impl<'v> FromFormValue<'v> for CSSSelector {
-  type Error = &'v RawStr;
-
-  fn from_form_value(form_value: &'v RawStr) -> Result<CSSSelector, &'v RawStr> {
-    match form_value.url_decode() {
-      Ok(decoded) => {
-        match Selector::parse(&decoded) {
-          Ok(selector) => Ok(CSSSelector(selector)),
-          _ => Err(form_value),
-        }
-      },
-      _ => Err(form_value)
-    }
-  }
-}
-
 #[derive(FromForm)]
 struct FeedConfiguration {
   feed: String,
-  description_selector: CSSSelector
+  description_selector: String
 }
 
 #[get("/refurb?<configuration>")]
@@ -60,9 +39,11 @@ fn refurb(configuration: FeedConfiguration) -> Xml<String> {
     let new_description = match item.link() {
       None => continue,
       Some(url) => {
-        let document = scraper::Html::parse_document(&http_client.get(url).send().unwrap().text().unwrap());
+        use kuchiki::traits::TendrilSink;
 
-        let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
+        let document = kuchiki::parse_html().one(http_client.get(url).send().unwrap().text().unwrap());
+
+        let selected_items: Vec<String> = document.select(&configuration.description_selector).unwrap().map(|i| { i.as_node().to_string() }).collect();
 
         // TODO: Make sure the URLs in the document are reassociated
 

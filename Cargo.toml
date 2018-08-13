@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = ["Jessica Stokes <hello@jessicastokes.net>"]
 
 [dependencies]
+kuchiki = "0.7.0"
 reqwest = "0.8.7"
 rocket = "0.3.14"
 rocket_codegen = "0.3.14"
 rss = "1.5.0"
-scraper = "0.7.0"
 
 [dependencies.rocket_contrib]
 version = "0.3.14"
