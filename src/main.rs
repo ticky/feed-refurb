@@ -60,11 +60,13 @@ fn refurb(configuration: FeedConfiguration) -> Xml<String> {
     let new_description = match item.link() {
       None => continue,
       Some(url) => {
-        let page_text = http_client.get(url).send().unwrap().text().unwrap();
-        let document = scraper::Html::parse_document(&page_text);
-        let new_description: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
+        let document = scraper::Html::parse_document(&http_client.get(url).send().unwrap().text().unwrap());
 
-        new_description.join("<br/>")
+        let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
+
+        // TODO: Make sure the URLs in the document are reassociated
+
+        selected_items.join("<br/>")
       }
     };
 
