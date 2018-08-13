@@ -9,13 +9,20 @@ extern crate rss;
 extern crate scraper;
 
 use rocket::http::RawStr;
-use rocket::Request;
+use rocket::{Request, State};
 use rocket::request::FromFormValue;
 use rocket::response::content::Xml;
 use rocket_contrib::Template;
 use rss::Channel;
 use scraper::Selector;
 use std::io::BufReader;
+
+const NAME: &'static str = env!("CARGO_PKG_NAME");
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
+struct HTTPClient {
+  client: reqwest::Client
+}
 
 #[get("/")]
 fn index() -> Template {
@@ -49,18 +56,16 @@ struct FeedConfiguration {
 }
 
 #[get("/refurb?<configuration>")]
-fn refurb(configuration: FeedConfiguration) -> Xml<String> {
-  let http_client = reqwest::Client::builder().build().unwrap();
-
+fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> Xml<String> {
   let mut parsed_feed = Channel::read_from(BufReader::new(
-    http_client.get(configuration.feed.as_str()).send().unwrap()
+    http_client.client.get(configuration.feed.as_str()).send().unwrap()
   )).unwrap();
 
   for item in parsed_feed.items_mut().iter_mut() {
     let new_description = match item.link() {
       None => continue,
       Some(url) => {
-        let document = scraper::Html::parse_document(&http_client.get(url).send().unwrap().text().unwrap());
+        let document = scraper::Html::parse_document(&http_client.client.get(url).send().unwrap().text().unwrap());
 
         let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
 
@@ -83,10 +88,26 @@ fn not_found(req: &Request) -> Template {
   Template::render("error/404", &map)
 }
 
+fn shared_http_client() -> HTTPClient {
+  use reqwest::Client;
+  use reqwest::header;
+
+  let mut headers = header::Headers::new();
+  headers.set(header::UserAgent::new(format!("{}/{}", NAME, VERSION)));
+
+  let client = Client::builder()
+                      .default_headers(headers)
+                      .build()
+                      .unwrap();
+
+  HTTPClient { client }
+}
+
 fn main() {
   rocket::ignite()
     .attach(Template::fairing())
-    .catch(catchers![not_found])
+    .manage(shared_http_client())
     .mount("/", routes![index, refurb])
+    .catch(catchers![not_found])
     .launch();
 }
