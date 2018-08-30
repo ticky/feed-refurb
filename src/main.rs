@@ -10,10 +10,10 @@ extern crate rss;
 extern crate scraper;
 
 use rocket::http::RawStr;
-use rocket::{Request, State};
 use rocket::request::FromFormValue;
-use rocket::response::Failure;
 use rocket::response::content::Xml;
+use rocket::response::Failure;
+use rocket::{Request, State};
 use rocket_contrib::Template;
 use rss::Channel;
 use scraper::Selector;
@@ -30,7 +30,7 @@ fn index() -> Template {
 }
 
 struct HTTPClient {
-  client: reqwest::Client
+  client: reqwest::Client,
 }
 
 struct CSSSelector(Selector);
@@ -40,13 +40,11 @@ impl<'v> FromFormValue<'v> for CSSSelector {
 
   fn from_form_value(form_value: &'v RawStr) -> Result<CSSSelector, &'v RawStr> {
     match form_value.url_decode() {
-      Ok(decoded) => {
-        match Selector::parse(&decoded) {
-          Ok(selector) => Ok(CSSSelector(selector)),
-          _ => Err(form_value),
-        }
+      Ok(decoded) => match Selector::parse(&decoded) {
+        Ok(selector) => Ok(CSSSelector(selector)),
+        _ => Err(form_value),
       },
-      _ => Err(form_value)
+      _ => Err(form_value),
     }
   }
 }
@@ -54,24 +52,27 @@ impl<'v> FromFormValue<'v> for CSSSelector {
 #[derive(FromForm)]
 struct FeedConfiguration {
   feed: String,
-  description_selector: CSSSelector
+  description_selector: CSSSelector,
 }
 
 #[get("/refurb?<configuration>")]
-fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> Result<Xml<String>, Failure> {
+fn refurb(
+  configuration: FeedConfiguration,
+  http_client: State<HTTPClient>,
+) -> Result<Xml<String>, Failure> {
   let mut feed = match http_client.client.get(configuration.feed.as_str()).send() {
     Ok(response) => {
       match Channel::read_from(BufReader::new(response)) {
         Ok(parsed) => parsed,
         Err(_error) => {
           // TODO: Handle specific errors
-          return Err(Failure(rocket::http::Status::NotAcceptable))
+          return Err(Failure(rocket::http::Status::NotAcceptable));
         }
       }
-    },
+    }
     Err(_error) => {
       // TODO: Handle specific errors
-      return Err(Failure(rocket::http::Status::NotAcceptable))
+      return Err(Failure(rocket::http::Status::NotAcceptable));
     }
   };
 
@@ -95,12 +96,15 @@ fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> R
                       ..std::default::Default::default()
                     },
                     ..std::default::Default::default()
-                  }
+                  },
                 );
 
                 let document = parser.one(text);
 
-                let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
+                let selected_items: Vec<String> = document
+                  .select(&configuration.description_selector.0)
+                  .map(|i| i.html())
+                  .collect();
 
                 // TODO: Make sure the URLs present in the document are reassociated
 
@@ -126,17 +130,14 @@ fn not_found(req: &Request) -> Template {
 }
 
 fn shared_http_client() -> HTTPClient {
-  use reqwest::Client;
   use reqwest::header;
+  use reqwest::Client;
 
   let mut headers = header::Headers::new();
   headers.set(header::UserAgent::new(format!("{}/{}", NAME, VERSION)));
 
   HTTPClient {
-    client: Client::builder()
-                   .default_headers(headers)
-                   .build()
-                   .unwrap()
+    client: Client::builder().default_headers(headers).build().unwrap(),
   }
 }
 
