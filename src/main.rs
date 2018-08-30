@@ -11,6 +11,7 @@ extern crate scraper;
 use rocket::http::RawStr;
 use rocket::{Request, State};
 use rocket::request::FromFormValue;
+use rocket::response::Failure;
 use rocket::response::content::Xml;
 use rocket_contrib::Template;
 use rss::Channel;
@@ -56,12 +57,24 @@ struct FeedConfiguration {
 }
 
 #[get("/refurb?<configuration>")]
-fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> Xml<String> {
-  let mut parsed_feed = Channel::read_from(BufReader::new(
-    http_client.client.get(configuration.feed.as_str()).send().unwrap()
-  )).unwrap();
+fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> Result<Xml<String>, Failure> {
+  let mut feed = match http_client.client.get(configuration.feed.as_str()).send() {
+    Ok(response) => {
+      match Channel::read_from(BufReader::new(response)) {
+        Ok(parsed) => parsed,
+        Err(_error) => {
+          // TODO: Handle specific errors
+          return Err(Failure(rocket::http::Status::NotAcceptable))
+        }
+      }
+    },
+    Err(_error) => {
+      // TODO: Handle specific errors
+      return Err(Failure(rocket::http::Status::NotAcceptable))
+    }
+  };
 
-  for item in parsed_feed.items_mut().iter_mut() {
+  for item in feed.items_mut().iter_mut() {
     let new_description = match item.link() {
       None => continue,
       Some(url) => {
@@ -69,7 +82,7 @@ fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> X
 
         let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
 
-        // TODO: Make sure the URLs in the document are reassociated
+        // TODO: Make sure the URLs present in the document are reassociated
 
         selected_items.join("<br/>")
       }
@@ -78,7 +91,7 @@ fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> X
     item.set_description(new_description);
   }
 
-  Xml(parsed_feed.to_string())
+  Ok(Xml(feed.to_string()))
 }
 
 #[catch(404)]
@@ -97,8 +110,8 @@ fn shared_http_client() -> HTTPClient {
 
   HTTPClient {
     client: Client::builder()
-                      .default_headers(headers)
-                      .build()
+                   .default_headers(headers)
+                   .build()
                    .unwrap()
   }
 }
