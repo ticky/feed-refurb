@@ -69,7 +69,7 @@ fn refurb(
         Ok(parsed) => {
           println!("Parsed feed");
           parsed
-        },
+        }
         Err(_error) => {
           // TODO: Handle specific errors
           return Err(Failure(rocket::http::Status::NotAcceptable));
@@ -98,7 +98,7 @@ fn refurb(
                 use html5ever::tendril::TendrilSink;
                 use std::default::Default;
 
-                let parser = html5ever::driver::parse_document(
+                let source_document = html5ever::driver::parse_document(
                   scraper::Html::new_document(),
                   html5ever::driver::ParseOpts {
                     tree_builder: html5ever::tree_builder::TreeBuilderOpts {
@@ -107,22 +107,26 @@ fn refurb(
                     },
                     ..Default::default()
                   },
-                );
+                ).one(text);
 
-                let document = parser.one(text);
+                println!("Parsed document");
 
-                println!("Got document");
-
-                let selected_items: Vec<String> = document
+                let selection: Vec<String> = source_document
                   .select(&configuration.description_selector.0)
-                  .map(|i| i.html())
+                  .map(|element| element.html())
                   .collect();
 
-                // TODO: Make sure the URLs present in the document are reassociated
+                // TODO:
+                //  1. Transplant selected elements to a new DOM context (Kuchiki?)
+                //  2. Make sure the URLs present in the document are reassociated
+                //     Rough plan:
+                //      1. `new_dom.select("[href],[src]")`
+                //      2. map over all of those merging their values with `url`
+                //  3. Serialise that new DOM and return that value from this closure
 
                 println!("Got selections");
 
-                selected_items.join("<br/>")
+                selection.join("<br/>")
               }
             }
           }
