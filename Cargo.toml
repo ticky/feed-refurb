@@ -5,6 +5,7 @@ authors = ["Jessica Stokes <hello@jessicastokes.net>"]
 
 [dependencies]
 html5ever = "0.22.3"
+rayon = "1.0.2"
 reqwest = "0.8.7"
 rocket = "0.3.14"
 rocket_codegen = "0.3.14"

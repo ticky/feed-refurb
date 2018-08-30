@@ -3,12 +3,14 @@
 #![feature(custom_derive)]
 
 extern crate html5ever;
+extern crate rayon;
 extern crate reqwest;
 extern crate rocket;
 extern crate rocket_contrib;
 extern crate rss;
 extern crate scraper;
 
+use rayon::prelude::*;
 use rocket::http::RawStr;
 use rocket::request::FromFormValue;
 use rocket::response::content::Xml;
@@ -80,18 +82,17 @@ fn refurb(
     }
   };
 
-  // TODO: Fearless Concurrency!
-  for item in feed.items_mut().iter_mut() {
+  feed.items_mut().par_iter_mut().for_each(|item| {
     let new_description = match item.link() {
-      None => continue,
+      None => return,
       Some(url) => {
         println!("Item has link: {}", url);
         match http_client.client.get(url).send() {
-          Err(_error) => continue,
+          Err(_error) => return,
           Ok(mut response) => {
             println!("Got response");
             match response.text() {
-              Err(_error) => continue,
+              Err(_error) => return,
               Ok(text) => {
                 println!("Got response text");
                 use html5ever::tendril::TendrilSink;
@@ -130,8 +131,9 @@ fn refurb(
     };
 
     item.set_description(new_description);
+
     println!("Description set!");
-  }
+  });
 
   println!("Processed entire feed!");
 
