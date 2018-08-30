@@ -20,15 +20,15 @@ use std::io::BufReader;
 const NAME: &'static str = env!("CARGO_PKG_NAME");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-struct HTTPClient {
-  client: reqwest::Client
-}
-
 #[get("/")]
 fn index() -> Template {
   let mut map = std::collections::HashMap::new();
   map.insert("path", "/");
   Template::render("index", &map)
+}
+
+struct HTTPClient {
+  client: reqwest::Client
 }
 
 struct CSSSelector(Selector);
