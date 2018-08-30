@@ -62,8 +62,12 @@ fn refurb(
 ) -> Result<Xml<String>, Failure> {
   let mut feed = match http_client.client.get(configuration.feed.as_str()).send() {
     Ok(response) => {
+      println!("Fetched {}", configuration.feed);
       match Channel::read_from(BufReader::new(response)) {
-        Ok(parsed) => parsed,
+        Ok(parsed) => {
+          println!("Parsed feed");
+          parsed
+        },
         Err(_error) => {
           // TODO: Handle specific errors
           return Err(Failure(rocket::http::Status::NotAcceptable));
@@ -76,30 +80,37 @@ fn refurb(
     }
   };
 
+  // TODO: Fearless Concurrency!
   for item in feed.items_mut().iter_mut() {
     let new_description = match item.link() {
       None => continue,
       Some(url) => {
+        println!("Item has link: {}", url);
         match http_client.client.get(url).send() {
           Err(_error) => continue,
           Ok(mut response) => {
+            println!("Got response");
             match response.text() {
               Err(_error) => continue,
               Ok(text) => {
+                println!("Got response text");
                 use html5ever::tendril::TendrilSink;
+                use std::default::Default;
 
                 let parser = html5ever::driver::parse_document(
                   scraper::Html::new_document(),
                   html5ever::driver::ParseOpts {
                     tree_builder: html5ever::tree_builder::TreeBuilderOpts {
                       scripting_enabled: false,
-                      ..std::default::Default::default()
+                      ..Default::default()
                     },
-                    ..std::default::Default::default()
+                    ..Default::default()
                   },
                 );
 
                 let document = parser.one(text);
+
+                println!("Got document");
 
                 let selected_items: Vec<String> = document
                   .select(&configuration.description_selector.0)
@@ -107,6 +118,8 @@ fn refurb(
                   .collect();
 
                 // TODO: Make sure the URLs present in the document are reassociated
+
+                println!("Got selections");
 
                 selected_items.join("<br/>")
               }
@@ -117,7 +130,10 @@ fn refurb(
     };
 
     item.set_description(new_description);
+    println!("Description set!");
   }
+
+  println!("Processed entire feed!");
 
   Ok(Xml(feed.to_string()))
 }
