@@ -95,12 +95,12 @@ fn shared_http_client() -> HTTPClient {
   let mut headers = header::Headers::new();
   headers.set(header::UserAgent::new(format!("{}/{}", NAME, VERSION)));
 
-  let client = Client::builder()
+  HTTPClient {
+    client: Client::builder()
                       .default_headers(headers)
                       .build()
-                      .unwrap();
-
-  HTTPClient { client }
+                   .unwrap()
+  }
 }
 
 fn main() {
