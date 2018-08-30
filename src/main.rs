@@ -78,13 +78,23 @@ fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> R
     let new_description = match item.link() {
       None => continue,
       Some(url) => {
-        let document = scraper::Html::parse_document(&http_client.client.get(url).send().unwrap().text().unwrap());
+        match http_client.client.get(url).send() {
+          Err(_error) => continue,
+          Ok(mut response) => {
+            match response.text() {
+              Err(_error) => continue,
+              Ok(text) => {
+                let document = scraper::Html::parse_document(&text);
 
-        let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
+                let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
 
-        // TODO: Make sure the URLs present in the document are reassociated
+                // TODO: Make sure the URLs present in the document are reassociated
 
-        selected_items.join("<br/>")
+                selected_items.join("<br/>")
+              }
+            }
+          }
+        }
       }
     };
 
