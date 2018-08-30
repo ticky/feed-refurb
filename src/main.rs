@@ -2,6 +2,7 @@
 #![plugin(rocket_codegen)]
 #![feature(custom_derive)]
 
+extern crate html5ever;
 extern crate reqwest;
 extern crate rocket;
 extern crate rocket_contrib;
@@ -84,7 +85,20 @@ fn refurb(configuration: FeedConfiguration, http_client: State<HTTPClient>) -> R
             match response.text() {
               Err(_error) => continue,
               Ok(text) => {
-                let document = scraper::Html::parse_document(&text);
+                use html5ever::tendril::TendrilSink;
+
+                let parser = html5ever::driver::parse_document(
+                  scraper::Html::new_document(),
+                  html5ever::driver::ParseOpts {
+                    tree_builder: html5ever::tree_builder::TreeBuilderOpts {
+                      scripting_enabled: false,
+                      ..std::default::Default::default()
+                    },
+                    ..std::default::Default::default()
+                  }
+                );
+
+                let document = parser.one(text);
 
                 let selected_items: Vec<String> = document.select(&configuration.description_selector.0).map(|i| { i.html() }).collect();
 
