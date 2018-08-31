@@ -84,58 +84,56 @@ fn refurb(
 
   feed.items_mut().par_iter_mut().for_each(|item| {
     let new_description = match item.link() {
-      None => return,
-      Some(url) => {
-        println!("Item has link: {}", url);
-        match http_client.client.get(url).send() {
-          Err(_error) => return,
-          Ok(mut response) => {
-            println!("Got response");
-            match response.text() {
-              Err(_error) => return,
-              Ok(text) => {
-                println!("Got response text");
-                use html5ever::tendril::TendrilSink;
-                use std::default::Default;
+        None => return,
+        Some(url) => {
+          println!("Item has link: {}", url);
 
-                let source_document = html5ever::driver::parse_document(
-                  scraper::Html::new_document(),
-                  html5ever::driver::ParseOpts {
-                    tree_builder: html5ever::tree_builder::TreeBuilderOpts {
-                      scripting_enabled: false,
-                      ..Default::default()
-                    },
-                    ..Default::default()
-                  },
-                ).one(text);
+          let mut response = match http_client.client.get(url).send() {
+              Ok(response) => response,
+              Err(_) => return
+          };
+          println!("Got response");
 
-                println!("Parsed document");
+          let text = match response.text() {
+            Ok(text) => text,
+            Err(_) => return
+          };
 
-                let selection: Vec<String> = source_document
-                  .select(&configuration.description_selector.0)
-                  .map(|element| element.html())
-                  .collect();
+          println!("Got response text");
+          use html5ever::tendril::TendrilSink;
+          use std::default::Default;
 
-                // TODO:
-                //  1. Transplant selected elements to a new DOM context (Kuchiki?)
-                //  2. Make sure the URLs present in the document are reassociated
-                //     Rough plan:
-                //      1. `new_dom.select("[href],[src]")`
-                //      2. map over all of those merging their values with `url`
-                //  3. Serialise that new DOM and return that value from this closure
+          let source_document = html5ever::driver::parse_document(
+            scraper::Html::new_document(),
+            html5ever::driver::ParseOpts {
+              tree_builder: html5ever::tree_builder::TreeBuilderOpts {
+                scripting_enabled: false,
+                ..Default::default()
+              },
+              ..Default::default()
+            },
+          ).one(text);
+          println!("Parsed document");
 
-                println!("Got selections");
+          let selection: Vec<String> = source_document
+            .select(&configuration.description_selector.0)
+            .map(|element| element.html())
+            .collect();
 
-                selection.join("<br/>")
-              }
-            }
-          }
+          // TODO:
+          //  1. Transplant selected elements to a new DOM context (Kuchiki?)
+          //  2. Make sure the URLs present in the document are reassociated
+          //     Rough plan:
+          //      1. `new_dom.select("[href],[src]")`
+          //      2. map over all of those merging their values with `url`
+          //  3. Serialise that new DOM and return that value from this closure
+
+          println!("Got selections");
+          selection.join("<br/>")
         }
-      }
     };
 
     item.set_description(new_description);
-
     println!("Description set!");
   });
 
