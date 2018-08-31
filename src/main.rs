@@ -41,13 +41,14 @@ impl<'v> FromFormValue<'v> for CSSSelector {
   type Error = &'v RawStr;
 
   fn from_form_value(form_value: &'v RawStr) -> Result<CSSSelector, &'v RawStr> {
-    match form_value.url_decode() {
-      Ok(decoded) => match Selector::parse(&decoded) {
-        Ok(selector) => Ok(CSSSelector(selector)),
-        _ => Err(form_value),
-      },
-      _ => Err(form_value),
-    }
+    form_value
+      .url_decode()
+      .or_else(|_| Err(form_value))
+      .and_then(|decoded| {
+        Selector::parse(&decoded)
+          .or_else(|_| Err(form_value))
+          .and_then(|selector| Ok(CSSSelector(selector)))
+      })
   }
 }
 
