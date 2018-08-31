@@ -2,14 +2,16 @@
 #![plugin(rocket_codegen)]
 #![feature(custom_derive)]
 
+#[macro_use]
 extern crate html5ever;
+extern crate kuchiki;
 extern crate rayon;
 extern crate reqwest;
 extern crate rocket;
 extern crate rocket_contrib;
 extern crate rss;
-extern crate scraper;
 
+use kuchiki::Selectors;
 use rayon::prelude::*;
 use rocket::http::RawStr;
 use rocket::request::FromFormValue;
@@ -18,7 +20,6 @@ use rocket::response::Failure;
 use rocket::{Request, State};
 use rocket_contrib::Template;
 use rss::Channel;
-use scraper::Selector;
 use std::io::BufReader;
 
 const NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -35,7 +36,14 @@ struct HTTPClient {
   client: reqwest::Client,
 }
 
-struct CSSSelector(Selector);
+fn create_br_element() -> kuchiki::NodeRef {
+  kuchiki::NodeRef::new_element(
+    html5ever::QualName::new(None, ns!(html), local_name!("br")),
+    vec![],
+  )
+}
+
+struct CSSSelector(Selectors);
 
 impl<'v> FromFormValue<'v> for CSSSelector {
   type Error = &'v RawStr;
@@ -45,7 +53,7 @@ impl<'v> FromFormValue<'v> for CSSSelector {
       .url_decode()
       .or_else(|_| Err(form_value))
       .and_then(|decoded| {
-        Selector::parse(&decoded)
+        Selectors::compile(&decoded)
           .or_else(|_| Err(form_value))
           .and_then(|selector| Ok(CSSSelector(selector)))
       })
@@ -96,38 +104,52 @@ fn refurb(
               Err(_error) => return,
               Ok(text) => {
                 println!("Got response text");
-                use html5ever::tendril::TendrilSink;
+                use html5ever::tree_builder::TreeBuilderOpts;
+                use kuchiki::iter::NodeIterator;
+                use kuchiki::traits::TendrilSink;
+                use kuchiki::ParseOpts;
                 use std::default::Default;
 
-                let source_document = html5ever::driver::parse_document(
-                  scraper::Html::new_document(),
-                  html5ever::driver::ParseOpts {
-                    tree_builder: html5ever::tree_builder::TreeBuilderOpts {
-                      scripting_enabled: false,
-                      ..Default::default()
-                    },
+                let target_document = kuchiki::NodeRef::new_document();
+
+                let source_document = kuchiki::parse_html_with_options(ParseOpts {
+                  tree_builder: TreeBuilderOpts {
+                    scripting_enabled: false,
                     ..Default::default()
                   },
-                ).one(text);
+                  ..Default::default()
+                }).one(text);
 
                 println!("Parsed document");
 
-                let selection: Vec<String> = source_document
-                  .select(&configuration.description_selector.0)
-                  .map(|element| element.html())
-                  .collect();
+                let selected = configuration
+                  .description_selector
+                  .0
+                  .filter(source_document.descendants().elements())
+                  .collect::<Vec<_>>();
+
+                println!("Got {} selection(s)", selected.len());
+
+                // TODO: Make this no-op if no selections are found
+
+                selected.iter().for_each(|element| {
+                  // If we've already got siblings, separate with <br> elements
+                  if target_document.children().count() > 0 {
+                    target_document.append(create_br_element());
+                  }
+
+                  // Append the element!
+                  target_document.append(element.as_node().clone());
+                });
 
                 // TODO:
-                //  1. Transplant selected elements to a new DOM context (Kuchiki?)
-                //  2. Make sure the URLs present in the document are reassociated
-                //     Rough plan:
-                //      1. `new_dom.select("[href],[src]")`
-                //      2. map over all of those merging their values with `url`
-                //  3. Serialise that new DOM and return that value from this closure
+                // Reassociate the URLs present in the document. Rough plan:
+                //  1. `new_dom.select("[href],[src]")`
+                //  2. map over all of those merging their values with `url`
 
                 println!("Got selections");
 
-                selection.join("<br/>")
+                target_document.to_string()
               }
             }
           }
