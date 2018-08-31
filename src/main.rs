@@ -164,11 +164,37 @@ fn shared_http_client() -> HTTPClient {
   }
 }
 
-fn main() {
+fn application() -> rocket::Rocket {
   rocket::ignite()
     .attach(Template::fairing())
     .manage(shared_http_client())
     .mount("/", routes![index, refurb])
     .catch(catchers![not_found])
-    .launch();
+}
+
+fn main() {
+  application().launch();
+}
+
+#[cfg(test)]
+mod test {
+  use super::application;
+  use rocket::http::Status;
+  use rocket::local::Client;
+
+  #[test]
+  fn index() {
+    let client = Client::new(application()).expect("valid rocket instance");
+    let response = client.get("/").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+  }
+
+  #[test]
+  fn not_found() {
+    let client = Client::new(application()).expect("valid rocket instance");
+    let response = client
+      .get("/not-a-valid-url-in-a-million-years-i-promise")
+      .dispatch();
+    assert_eq!(response.status(), Status::NotFound);
+  }
 }
