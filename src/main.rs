@@ -24,6 +24,7 @@ use std::io::BufReader;
 
 const NAME: &'static str = env!("CARGO_PKG_NAME");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const SOURCE_VERSION: &'static str = env!("SOURCE_VERSION");
 
 #[get("/")]
 fn index() -> Template {
@@ -179,7 +180,10 @@ fn shared_http_client() -> HTTPClient {
   use reqwest::Client;
 
   let mut headers = header::Headers::new();
-  headers.set(header::UserAgent::new(format!("{}/{}", NAME, VERSION)));
+  headers.set(header::UserAgent::new(format!(
+    "{}/{} ({})",
+    NAME, VERSION, SOURCE_VERSION
+  )));
 
   HTTPClient {
     client: Client::builder().default_headers(headers).build().unwrap(),

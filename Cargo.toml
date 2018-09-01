@@ -2,6 +2,7 @@
 name = "feed-refurb"
 version = "0.1.0"
 authors = ["Jessica Stokes <hello@jessicastokes.net>"]
+build = "build.rs"
 
 [dependencies]
 html5ever = "0.22.3"
