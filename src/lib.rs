@@ -197,26 +197,3 @@ pub fn application() -> rocket::Rocket {
     .mount("/", routes![index, refurb])
     .catch(catchers![not_found])
 }
-
-#[cfg(test)]
-mod test {
-  use super::application;
-  use rocket::http::Status;
-  use rocket::local::Client;
-
-  #[test]
-  fn index() {
-    let client = Client::new(application()).expect("valid rocket instance");
-    let response = client.get("/").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-  }
-
-  #[test]
-  fn not_found() {
-    let client = Client::new(application()).expect("valid rocket instance");
-    let response = client
-      .get("/not-a-valid-url-in-a-million-years-i-promise")
-      .dispatch();
-    assert_eq!(response.status(), Status::NotFound);
-  }
-}
