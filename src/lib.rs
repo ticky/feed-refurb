@@ -190,16 +190,12 @@ fn shared_http_client() -> HTTPClient {
   }
 }
 
-fn application() -> rocket::Rocket {
+pub fn application() -> rocket::Rocket {
   rocket::ignite()
     .attach(Template::fairing())
     .manage(shared_http_client())
     .mount("/", routes![index, refurb])
     .catch(catchers![not_found])
-}
-
-fn main() {
-  application().launch();
 }
 
 #[cfg(test)]
