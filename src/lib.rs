@@ -72,96 +72,113 @@ fn refurb(
   configuration: FeedConfiguration,
   http_client: State<HTTPClient>,
 ) -> Result<Xml<String>, Failure> {
-  let mut feed = match http_client.client.get(configuration.feed.as_str()).send() {
-    Ok(response) => {
-      println!("Fetched {}", configuration.feed);
-      match Channel::read_from(BufReader::new(response)) {
-        Ok(parsed) => {
-          println!("Parsed feed");
-          parsed
-        }
-        Err(_error) => {
-          // TODO: Handle specific errors
-          return Err(Failure(rocket::http::Status::NotAcceptable));
-        }
+  let mut feed = {
+    let response_buffer = match http_client.client.get(configuration.feed.as_str()).send() {
+      Err(_error) => {
+        // TODO: Handle specific errors
+        return Err(Failure(rocket::http::Status::NotAcceptable));
       }
-    }
-    Err(_error) => {
-      // TODO: Handle specific errors
-      return Err(Failure(rocket::http::Status::NotAcceptable));
+      Ok(response) => BufReader::new(response),
+    };
+
+    println!("Fetched {}", configuration.feed);
+
+    match Channel::read_from(response_buffer) {
+      Err(_error) => {
+        // TODO: Handle specific errors
+        return Err(Failure(rocket::http::Status::NotAcceptable));
+      }
+      Ok(parsed) => parsed,
     }
   };
 
-  feed.items_mut().par_iter_mut().for_each(|item| {
-    let new_description = match item.link() {
-      None => return,
-      Some(url) => {
-        println!("Item has link: {}", url);
-        match http_client.client.get(url).send() {
-          Err(_error) => return,
-          Ok(mut response) => {
-            println!("Got response");
-            match response.text() {
-              Err(_error) => return,
-              Ok(text) => {
-                println!("Got response text");
-                use html5ever::tree_builder::TreeBuilderOpts;
-                use kuchiki::iter::NodeIterator;
-                use kuchiki::traits::TendrilSink;
-                use kuchiki::ParseOpts;
-                use std::default::Default;
+  println!("Parsed feed");
 
-                let target_document = kuchiki::NodeRef::new_document();
-
-                let source_document = kuchiki::parse_html_with_options(ParseOpts {
-                  tree_builder: TreeBuilderOpts {
-                    scripting_enabled: false,
-                    ..Default::default()
-                  },
-                  ..Default::default()
-                }).one(text);
-
-                println!("Parsed document");
-
-                let selected = configuration
-                  .description_selector
-                  .0
-                  .filter(source_document.descendants().elements())
-                  .collect::<Vec<_>>();
-
-                println!("Got {} selection(s)", selected.len());
-
-                // TODO: Make this no-op if no selections are found
-
-                selected.iter().for_each(|element| {
-                  // If we've already got siblings, separate with <br> elements
-                  if target_document.children().count() > 0 {
-                    target_document.append(create_br_element());
-                  }
-
-                  // Append the element!
-                  target_document.append(element.as_node().clone());
-                });
-
-                // TODO:
-                // Reassociate the URLs present in the document. Rough plan:
-                //  1. `new_dom.select("[href],[src]")`
-                //  2. map over all of those merging their values with `url`
-
-                println!("Got selections");
-
-                target_document.to_string()
-              }
-            }
-          }
+  feed
+    .items_mut()
+    .par_iter_mut()
+    .enumerate()
+    .for_each(|(index, item)| {
+      let url = match item.link() {
+        None => return,
+        Some(url) => {
+          println!("Item {}: has link {}", index, url);
+          url.to_string()
         }
-      }
-    };
+      };
 
-    item.set_description(new_description);
+      let source_document = {
+        let text = {
+          let mut response = match http_client.client.get(url.as_str()).send() {
+            Err(_error) => return,
+            Ok(response) => response,
+          };
 
-    println!("Description set!");
-  });
+          println!("Item {}: Got response", index);
+
+          match response.text() {
+            Err(_error) => return,
+            Ok(text) => text,
+          }
+        };
+
+        println!("Item {}: Got response text", index);
+
+        use html5ever::tree_builder::TreeBuilderOpts;
+        use kuchiki::traits::TendrilSink;
+        use kuchiki::ParseOpts;
+        use std::default::Default;
+
+        kuchiki::parse_html_with_options(ParseOpts {
+          tree_builder: TreeBuilderOpts {
+            scripting_enabled: false,
+            ..Default::default()
+          },
+          ..Default::default()
+        }).one(text)
+      };
+
+      println!("Item {}: Parsed document", index);
+
+      let new_description = {
+        use kuchiki::iter::NodeIterator;
+
+        let target_document = kuchiki::NodeRef::new_document();
+
+        let selected = configuration
+          .description_selector
+          .0
+          .filter(source_document.descendants().elements())
+          .collect::<Vec<_>>();
+
+        println!("Item {}: Got {} selection(s)", index, selected.len());
+
+        // TODO: Make this no-op if no selections are found
+
+        selected.iter().for_each(|element| {
+          // If we've already got siblings, separate with <br> elements
+          if target_document.children().count() > 0 {
+            target_document.append(create_br_element());
+          }
+
+          // Append the element!
+          target_document.append(element.as_node().clone());
+        });
+
+        // TODO:
+        // Reassociate the URLs present in the document. Rough plan:
+        //  1. `new_dom.select("[href],[src]")`
+        //  2. map over all of those merging their values with `url`
+
+        println!("Item {}: Got selections", index);
+
+        target_document.to_string()
+      };
+
+      item.set_description(new_description);
+
+      println!("Item {}: Description set!", index);
+    });
 
   println!("Processed entire feed!");
 
