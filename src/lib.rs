@@ -1,3 +1,4 @@
+extern crate failure;
 #[macro_use]
 extern crate html5ever;
 extern crate kuchiki;
@@ -8,6 +9,7 @@ extern crate rayon;
 extern crate reqwest;
 extern crate rss;
 
+use failure::Error;
 use kuchiki::Selectors;
 use rayon::prelude::*;
 use rss::Channel;
@@ -25,23 +27,13 @@ pub fn refurb(
   feed_url: String,
   description_selector: Selectors,
   http_client: &reqwest::Client,
-) -> Result<Channel, String> {
+) -> Result<Channel, Error> {
   let mut feed = {
-    let response_buffer = match http_client.get(feed_url.as_str()).send() {
-      Err(error) => {
-        return Err(error.to_string());
-      }
-      Ok(response) => BufReader::new(response),
-    };
+    let response_buffer = http_client.get(feed_url.as_str()).send()?;
 
     println!("Fetched {}", feed_url);
 
-    match Channel::read_from(response_buffer) {
-      Err(error) => {
-        return Err(error.to_string());
-      }
-      Ok(parsed) => parsed,
-    }
+    Channel::read_from(BufReader::new(response_buffer))?
   };
 
   println!("Parsed feed");
