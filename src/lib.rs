@@ -2,6 +2,8 @@ extern crate failure;
 #[macro_use]
 extern crate html5ever;
 extern crate kuchiki;
+#[macro_use]
+extern crate log;
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
@@ -28,15 +30,17 @@ pub fn refurb(
   description_selector: Selectors,
   http_client: &reqwest::Client,
 ) -> Result<Channel, Error> {
+  info!("Processing feed at {}", feed_url);
+
   let mut feed = {
     let response_buffer = http_client.get(feed_url.as_str()).send()?;
 
-    println!("Fetched {}", feed_url);
+    debug!("{}: Fetched OK", feed_url);
 
     Channel::read_from(BufReader::new(response_buffer))?
   };
 
-  println!("Parsed feed");
+  debug!("{}: Parsed OK", feed_url);
 
   feed
     .items_mut()
@@ -46,7 +50,7 @@ pub fn refurb(
       let url = match item.link() {
         None => return,
         Some(url) => {
-          println!("Item {}: has link {}", index, url);
+          debug!("{}: Item {}: has link {}", feed_url, index, url);
           url.to_string()
         }
       };
@@ -58,7 +62,7 @@ pub fn refurb(
             Ok(response) => response,
           };
 
-          println!("Item {}: Got response", index);
+          debug!("{}: Item {}: Got response", feed_url, index);
 
           match response.text() {
             Err(_error) => return,
@@ -66,7 +70,7 @@ pub fn refurb(
           }
         };
 
-        println!("Item {}: Got response text", index);
+        debug!("{}: Item {}: Got response text", feed_url, index);
 
         use html5ever::tree_builder::TreeBuilderOpts;
         use kuchiki::traits::TendrilSink;
@@ -82,7 +86,7 @@ pub fn refurb(
         }).one(text)
       };
 
-      println!("Item {}: Parsed document", index);
+      debug!("{}: Item {}: Parsed document", feed_url, index);
 
       let new_description = {
         use kuchiki::iter::NodeIterator;
@@ -93,7 +97,7 @@ pub fn refurb(
           .filter(source_document.descendants().elements())
           .collect::<Vec<_>>();
 
-        println!("Item {}: Got {} selection(s)", index, selected.len());
+        debug!("{}: Item {}: Got {} selection(s)", feed_url, index, selected.len());
 
         // TODO: Make this no-op if no selections are found
 
@@ -112,17 +116,17 @@ pub fn refurb(
         //  1. `new_dom.select("[href],[src]")`
         //  2. map over all of those merging their values with `url`
 
-        println!("Item {}: Got selections", index);
+        debug!("{}: Item {}: Got selections", feed_url, index);
 
         target_document.to_string()
       };
 
       item.set_description(new_description);
 
-      println!("Item {}: Description set!", index);
+      debug!("{}: Item {}: Description set!", feed_url, index);
     });
 
-  println!("Processed entire feed!");
+  info!("Processed feed at {}!", feed_url);
 
   Ok(feed)
 }

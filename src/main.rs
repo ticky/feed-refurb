@@ -7,6 +7,7 @@ extern crate kuchiki;
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
+extern crate pretty_env_logger;
 extern crate reqwest;
 extern crate rocket;
 extern crate rocket_contrib;
@@ -99,6 +100,8 @@ fn shared_http_client() -> HTTPClient {
 }
 
 fn application() -> rocket::Rocket {
+  pretty_env_logger::init();
+
   rocket::ignite()
     .attach(Template::fairing())
     .manage(shared_http_client())
