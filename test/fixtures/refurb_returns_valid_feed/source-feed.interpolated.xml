@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+  <rss version="2.0">
+  <channel>
+    <title>My Test Feed</title>
+    <link>{host}</link>
+    <description>Test feed for testing purposes!</description>
+    <language>en-us</language>
+    <item>
+      <title><![CDATA[My Latest Cool Article]]></title>
+      <description><![CDATA[bad and not good article summary, click for more]]></description>
+      <link>{host}{article}</link>
+      <author>webmaster@{hostname}</author>
+      <pubDate>Fri, 31 Aug 2018 03:59:52 +0000</pubDate>
+      <guid>{host}{article}</guid>
+    </item>
+  </channel>
+</rss>
