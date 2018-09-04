@@ -100,8 +100,6 @@ fn shared_http_client() -> HTTPClient {
 }
 
 fn application() -> rocket::Rocket {
-  pretty_env_logger::init();
-
   rocket::ignite()
     .attach(Template::fairing())
     .manage(shared_http_client())
@@ -110,6 +108,8 @@ fn application() -> rocket::Rocket {
 }
 
 fn main() {
+  pretty_env_logger::init();
+
   application().launch();
 }
 
