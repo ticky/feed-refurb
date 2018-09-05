@@ -1,3 +1,5 @@
+//! Take an RSS feed that's looking a bit crusty, and refurbish it!
+
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
@@ -54,6 +56,11 @@ impl From<RSSError> for Error {
   }
 }
 
+/// Refurbishes a given RSS feed.
+///
+/// Fetches the RSS feed at the specified `feed_url`, and for each item with a
+/// link, fetches that link. If this returns HTML, it extracts content from it
+/// using the `description_selector`, and replaces the existing description.
 pub fn refurb(
   feed_url: String,
   description_selector: Selectors,
@@ -257,8 +264,9 @@ mod test {
 
     let feed_request = mockito::mock("GET", feed_path)
       .with_header("content-type", "application/xml")
-      .with_body(&include_str!("../test/fixtures/refurb_returns_rss_error/invalid-feed.xml"))
-      .create();
+      .with_body(&include_str!(
+        "../test/fixtures/refurb_returns_rss_error/invalid-feed.xml"
+      )).create();
 
     let client = reqwest::Client::new();
 
