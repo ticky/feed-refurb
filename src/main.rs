@@ -7,7 +7,6 @@ extern crate kuchiki;
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
-extern crate pretty_env_logger;
 extern crate reqwest;
 extern crate rocket;
 extern crate rocket_contrib;
@@ -108,8 +107,6 @@ fn application() -> rocket::Rocket {
 }
 
 fn main() {
-  pretty_env_logger::init();
-
   application().launch();
 }
 
