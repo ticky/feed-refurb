@@ -1,5 +1,7 @@
 extern crate failure;
 #[macro_use]
+extern crate failure_derive;
+#[macro_use]
 extern crate html5ever;
 extern crate kuchiki;
 #[macro_use]
@@ -11,10 +13,11 @@ extern crate rayon;
 extern crate reqwest;
 extern crate rss;
 
-use failure::Error;
 use kuchiki::Selectors;
 use rayon::prelude::*;
+use reqwest::Error as ReqwestError;
 use rss::Channel;
+use rss::Error as RSSError;
 use std::io::BufReader;
 use std::result::Result;
 
@@ -23,6 +26,32 @@ fn create_br_element() -> kuchiki::NodeRef {
     html5ever::QualName::new(None, ns!(html), local_name!("br")),
     vec![],
   )
+}
+
+#[derive(Fail, Debug)]
+/// Errors that can occur while processing a feed.
+pub enum Error {
+  #[fail(display = "HTTP request error: {}", _0)]
+  /// An error which occurred in downloading the feed.
+  HTTP(#[cause] ReqwestError),
+
+  #[fail(display = "RSS parser error: {}", _0)]
+  /// An error which occurred while parsing the feed.
+  RSS(#[cause] RSSError),
+}
+
+impl From<ReqwestError> for Error {
+  /// Performs the conversion from a [`reqwest::Error`].
+  fn from(err: ReqwestError) -> Error {
+    Error::HTTP(err)
+  }
+}
+
+impl From<RSSError> for Error {
+  /// Performs the conversion from an [`rss::Error`].
+  fn from(err: RSSError) -> Error {
+    Error::RSS(err)
+  }
 }
 
 pub fn refurb(
@@ -145,6 +174,7 @@ mod test {
   use kuchiki::Selectors;
 
   use super::refurb;
+  use super::Error;
 
   #[test]
   fn refurb_returns_valid_feed() {
@@ -197,5 +227,57 @@ mod test {
 
     feed_request.assert();
     article_request.assert();
+  }
+
+  #[test]
+  fn refurb_returns_http_error() {
+    let client = reqwest::Client::new();
+
+    let refurbished = refurb(
+      "http://127.0.0.1:1".to_string(),
+      Selectors::compile("*").expect("compiled selectors"),
+      &client,
+    );
+
+    assert!(
+      refurbished.is_err(),
+      "should return failure processing feed"
+    );
+
+    match refurbished.unwrap_err() {
+      Error::HTTP(_) => (),
+      _ => panic!("expected an HTTP error!"),
+    };
+  }
+
+  #[test]
+  fn refurb_returns_rss_error() {
+    let server_host = format!("http://{}", mockito::SERVER_ADDRESS);
+    let feed_path = "/feed.rss";
+
+    let feed_request = mockito::mock("GET", feed_path)
+      .with_header("content-type", "application/xml")
+      .with_body(&include_str!("../test/fixtures/refurb_returns_rss_error/invalid-feed.xml"))
+      .create();
+
+    let client = reqwest::Client::new();
+
+    let refurbished = refurb(
+      format!("{}{}", server_host, feed_path),
+      Selectors::compile("*").expect("compiled selectors"),
+      &client,
+    );
+
+    assert!(
+      refurbished.is_err(),
+      "should return failure processing feed"
+    );
+
+    match refurbished.unwrap_err() {
+      Error::RSS(_) => (),
+      _ => panic!("expected an RSS error!"),
+    };
+
+    feed_request.assert();
   }
 }
