@@ -97,7 +97,12 @@ pub fn refurb(
           .filter(source_document.descendants().elements())
           .collect::<Vec<_>>();
 
-        debug!("{}: Item {}: Got {} selection(s)", feed_url, index, selected.len());
+        debug!(
+          "{}: Item {}: Got {} selection(s)",
+          feed_url,
+          index,
+          selected.len()
+        );
 
         // TODO: Make this no-op if no selections are found
 
