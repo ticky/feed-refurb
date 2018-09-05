@@ -10,7 +10,6 @@ extern crate pretty_assertions;
 extern crate reqwest;
 extern crate rocket;
 extern crate rocket_contrib;
-extern crate rss;
 
 use kuchiki::Selectors;
 use rocket::http::RawStr;
@@ -143,7 +142,9 @@ mod test {
     let feed_request = mockito::mock("GET", feed_path)
       .with_header("content-type", "application/xml")
       .with_body(&format!(
-        include_str!("../tests/fixtures/refurb_returns_valid_feed/source-feed.interpolated.xml"),
+        include_str!(
+          "../../feed-refurb/tests/fixtures/refurb_returns_valid_feed/source-feed.interpolated.xml"
+        ),
         hostname = mockito::SERVER_ADDRESS,
         host = server_host,
         article = article_path,
@@ -152,7 +153,7 @@ mod test {
     let article_request = mockito::mock("GET", article_path)
       .with_header("content-type", "text/html")
       .with_body(&include_str!(
-        "../tests/fixtures/refurb_returns_valid_feed/latest-cool-article-123.html"
+        "../../feed-refurb/tests/fixtures/refurb_returns_valid_feed/latest-cool-article-123.html"
       )).create();
 
     let client = Client::new(application()).expect("valid rocket instance");
@@ -170,7 +171,7 @@ mod test {
         .body_string()
         .expect("processed feed response body"),
       format!(
-        include_str!("../tests/fixtures/refurb_returns_valid_feed/expected-feed.interpolated.xml"),
+        include_str!("../../feed-refurb/tests/fixtures/refurb_returns_valid_feed/expected-feed.interpolated.xml"),
         hostname = mockito::SERVER_ADDRESS,
         host = server_host,
         article = article_path,

@@ -1,0 +1,4 @@
+# this is only relevant to feed-refurb-web, but it won't
+# let me put this in the right place in the workspace :/
+[global]
+template_dir = "feed-refurb-web/templates/"
