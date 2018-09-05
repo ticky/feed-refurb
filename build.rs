@@ -7,7 +7,7 @@ const FALLBACK_VERSION: &'static str = "unknown";
 fn get_source_version() {
   use std::env;
 
-  let unknown_version = String::from(FALLBACK_VERSION);
+  let unknown_version = FALLBACK_VERSION.to_string();
 
   match env::var(SOURCE_VERSION) {
     Err(_) => {
