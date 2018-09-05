@@ -20,10 +20,6 @@ use rocket::response::Failure;
 use rocket::{Request, State};
 use rocket_contrib::Template;
 
-const NAME: &'static str = env!("CARGO_PKG_NAME");
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const SOURCE_VERSION: &'static str = env!("SOURCE_VERSION");
-
 #[get("/")]
 fn index() -> Template {
   let mut map = std::collections::HashMap::new();
@@ -88,9 +84,13 @@ fn shared_http_client() -> HTTPClient {
   use reqwest::Client;
 
   let mut headers = header::Headers::new();
-  headers.set(header::UserAgent::new(format!(
-    "{}/{} ({})",
-    NAME, VERSION, SOURCE_VERSION
+  headers.set(header::UserAgent::new(concat!(
+    env!("CARGO_PKG_NAME"),
+    "/",
+    env!("CARGO_PKG_VERSION"),
+    " (",
+    env!("SOURCE_VERSION"),
+    ")"
   )));
 
   HTTPClient {
